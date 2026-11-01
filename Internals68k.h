@@ -90,6 +90,9 @@ void              SendMsgFrame  (struct PrivatePPCBase* PowerPCBase, struct MsgF
 void              FreeMsgFrame  (struct PrivatePPCBase* PowerPCBase, struct MsgFrame* msgFrame);
 struct MsgFrame*  GetMsgFrame   (struct PrivatePPCBase* PowerPCBase);
 
+struct PCIBoard* FindPCIBoard(struct InternalConsts* myConsts, ULONG vendor, ULONG device);
+void   GetPCIBoardAttrs(struct InternalConsts* myConsts, struct PCIBoard* board, struct TagItem* tags);
+
 struct InitData *SetupPKiller (struct InternalConsts* myConsts, ULONG devfuncnum, struct PciDevice* ppcdevice, PCIBoard* pppcdevice, ULONG initPointer);
 struct InitData *SetupKiller  (struct InternalConsts* myConsts, ULONG devfuncnum, struct PciDevice* ppcdevice, PCIBoard* pppcdevice, ULONG initPointer);
 struct InitData *SetupHarrier (struct InternalConsts* myConsts, ULONG devfuncnum, struct PciDevice* ppcdevice, PCIBoard* pppcdevice, ULONG initPointer);

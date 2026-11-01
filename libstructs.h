@@ -128,6 +128,8 @@ UWORD                   ic_gfxType;
 UWORD                   ic_gfxSubType;
 UWORD                   ic_pciType;
 UWORD                   ic_ErrShown;    /* L2: PrintCrtErr has shown its requester and run CleanUp */
+UWORD                   ic_openPCI;
+ULONG                   ic_pciOffset;
 };
 
 struct InitData {

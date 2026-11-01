@@ -35,6 +35,8 @@ What is needed:
   Full support will need a further FirmWare fix.
 - pci.library version 13.8 or higher from Elbox (does not support PCIe cards).
 - prometheus.library version 4.5 or higher (17.14+).
+- Or, on the FireStorm, openpci.library V40+ with PPCInit in PCI-Configuration
+  to reserve the PCI memory (see ppcinit/).
 - AHI for sound. AHI 4.18 recommended.
  
 What does it do:

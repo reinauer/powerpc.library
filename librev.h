@@ -52,6 +52,8 @@
 #define VERPCIP     4
 #define REVPCIP     5
 
+#define VEROPCI     40
+
 #define LIB_PRIORITY 0
 
 const UWORD LibInitData[] = {
