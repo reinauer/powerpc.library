@@ -1,0 +1,67 @@
+# Cross-builds powerpc.library on a Unix host: make -f Makefile.cross
+# It uses the compiler options of makefile and project.options, except -O=991:
+# -O3 reorders libinit.c so its entry stub is no longer first. The link order
+# matters: libinit.c walks the seglist from the 68K code to the setup, kernel
+# and functions sections.
+#
+# AMIGA holds vbccm68k, vasmm68k_mot and vlink, with vbcc's m68k-amigaos target
+# and the NDK under m68k-amigaos. TOOLCHAIN holds what such a toolchain lacks:
+#   bin/vbccppc, bin/vasmppc_std
+#   wos/vbcc_target_ppc-warpos   vbcc's ppc-warpos target, for proto/powerpc.h
+#   emu68/src/ppc/include        WarpOS headers, from the Emu68 repository
+TOOLCHAIN ?= toolchain
+AMIGA ?= /opt/amiga-16.2
+BUILD ?= build
+
+VBCC68K = $(AMIGA)/bin/vbccm68k
+VBCCPPC = $(TOOLCHAIN)/bin/vbccppc
+VASM68K = $(AMIGA)/bin/vasmm68k_mot
+VASMPPC = $(TOOLCHAIN)/bin/vasmppc_std
+VLINK = $(AMIGA)/bin/vlink
+
+SDK = $(AMIGA)/m68k-amigaos
+VBCCLIB = $(SDK)/vbcc/targets/m68k-amigaos/lib
+WARPOS = $(TOOLCHAIN)/emu68/src/ppc/include
+
+CFLAGS68K = -quiet -c99 -cpu=68040 -sc -sd -speed -O=991 \
+            -I. -Iinclude -I$(SDK)/vbcc/targets/m68k-amigaos/include \
+            -I$(SDK)/vbcc/include -I$(SDK)/ndk-include -I$(WARPOS)
+CFLAGSPPC = -quiet -c99 -speed -poweropen -sc -no-multiple-ccs -madd -O=1023 \
+            -I. -Iinclude \
+            -I$(TOOLCHAIN)/wos/vbcc_target_ppc-warpos/targets/ppc-warpos/include \
+            -I$(SDK)/vbcc/include -I$(SDK)/ndk-include -I$(WARPOS)
+
+C68K = libinit functions68k support68k
+CPPC = setupppc kernel functionsppc supportppc
+OBJECTS = $(addprefix $(BUILD)/,libinit.o functions68kasm.o functions68k.o support68k.o \
+          setupppcasm.o setupppc.o kernelasm.o kernel.o functionsppc.o \
+          supportppcasm.o supportppc.o)
+
+all: $(BUILD)/powerpc.library
+
+$(BUILD)/powerpc.library: $(OBJECTS)
+	$(VLINK) -bamigahunk -x -Bstatic -Cvbcc -nostdlib -mrel -s -Rshort -L$(VBCCLIB) \
+	    $^ -lamiga -o $@
+
+$(BUILD)/functions68kasm.o: functions68k.s | $(BUILD)
+	$(VASM68K) -quiet -Fhunk -m68020up -Iinclude -I$(SDK)/ndk-include $< -o $@
+
+$(BUILD)/%asm.o: %.s constantsppc.i | $(BUILD)
+	$(VASMPPC) -quiet -many -mppc32 -mavec -Fhunk $< -o $@
+
+$(addprefix $(BUILD)/,$(addsuffix .o,$(C68K))): $(BUILD)/%.o: %.c | $(BUILD)
+	$(VBCC68K) $(CFLAGS68K) -o=$(BUILD)/$*.asm $<
+	$(VASM68K) -quiet -Fhunk -phxass -opt-fconst -nowarn=62 $(BUILD)/$*.asm -o $@
+
+$(addprefix $(BUILD)/,$(addsuffix .o,$(CPPC))): $(BUILD)/%.o: %.c | $(BUILD)
+	$(VBCCPPC) $(CFLAGSPPC) -o=$(BUILD)/$*.asm $<
+	$(VASMPPC) -quiet -Fhunk -sdreg=2 -opt-branch -nowarn=62 -many -mppc32 -mavec \
+	    $(BUILD)/$*.asm -o $@
+
+$(BUILD):
+	mkdir -p $@
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all clean
