@@ -173,6 +173,13 @@ It was a fun 9 year ride and thanks for your support! :-)
 
 What has changed since 17.15:
 
+- FireStorm detection also recognizes the bridge resource published by
+  OpenPCI/ClosedPCI after it hides the physical Zorro entry. PCI cards must
+  report the selected bridge's host offset through PRM_PCIToHostOffset.
+- Library initialization establishes its small-data register before using
+  globals. Error cleanup clears closed library pointers so a repeated
+  cleanup cannot close the same library twice.
+
 - Added the ENV option ReportG4asG3. See above.
 - The ENV option SetCMemDiv was read but did nothing. Fixed. See above.
 - The ENV option EnMemExc replaces EnAlignExc and EnDAccessExc. See above.

@@ -5,6 +5,11 @@
 
 struct pci_dev;
 
+/* OpenPCI extends the original Prometheus tag set. */
+#ifndef PRM_PCIToHostOffset
+#define PRM_PCIToHostOffset 0x6eda000fUL
+#endif
+
 UBYTE __pci_read_config_byte(__reg("a6") struct Library* base, __reg("d0") ULONG offset, __reg("a0") struct pci_dev* device) = "\tjsr\t-108(a6)\n";
 UWORD __pci_read_config_word(__reg("a6") struct Library* base, __reg("d0") ULONG offset, __reg("a0") struct pci_dev* device) = "\tjsr\t-114(a6)\n";
 ULONG __pci_read_config_long(__reg("a6") struct Library* base, __reg("d0") ULONG offset, __reg("a0") struct pci_dev* device) = "\tjsr\t-120(a6)\n";

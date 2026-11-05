@@ -273,20 +273,20 @@ static void CleanUp(struct InternalConsts *myConsts)
      */
     if (MediatorPCIBase = myConsts->ic_PciBase)
     {
-        CloseLibrary((struct Library*)MediatorPCIBase);
         myConsts->ic_PciBase = NULL;
+        CloseLibrary((struct Library*)MediatorPCIBase);
     }
 
     if (DOSBase = myConsts->ic_DOSBase)
     {
-        CloseLibrary((struct Library*)DOSBase);
         myConsts->ic_DOSBase = NULL;
+        CloseLibrary((struct Library*)DOSBase);
     }
 
     if (ExpansionBase = myConsts->ic_ExpansionBase)
     {
-        CloseLibrary((struct Library*)ExpansionBase);
         myConsts->ic_ExpansionBase = NULL;
+        CloseLibrary((struct Library*)ExpansionBase);
     }
 
     return;
@@ -369,13 +369,51 @@ struct PPCBase *mymakeLibrary(struct InternalConsts *myConsts, ULONG funPointer)
     return PowerPCBase;
 }
 
+/* OpenPCI replaces the physical ConfigDev with per-resource entries.
+ * Its bridge-register entry retains the original Zorro ID in the serial
+ * number. Do not accept the original Prometheus or a PCI device resource.
+ */
+static struct ConfigDev *FindFirestorm(struct InternalConsts *myConsts)
+{
+    struct ExpansionBase *ExpansionBase = myConsts->ic_ExpansionBase;
+    struct ConfigDev *cd;
+
+    if (cd = FindConfigDev(NULL, VENDOR_E3B, PROMETHEUS_FIRESTORM))
+    {
+        myConsts->ic_pciOffset = (ULONG)cd->cd_BoardAddr;
+        return cd;
+    }
+
+    if (myConsts->ic_openPCI)
+    {
+        cd = NULL;
+        while (cd = FindConfigDev(cd, VENDOR_OPENPCI_PROMETHEUS, OPENPCI_HOST_REGISTERS))
+        {
+            if (cd->cd_Rom.er_SerialNumber ==
+                (((ULONG)VENDOR_E3B << 16) | PROMETHEUS_FIRESTORM) &&
+                (ULONG)cd->cd_BoardAddr >= FIRESTORM_CONTROL_OFFSET &&
+                cd->cd_BoardSize >= sizeof(ULONG))
+            {
+                /* This entry describes the control register, not the
+                 * entire aperture. Verify the translation against the
+                 * selected device's PRM_PCIToHostOffset below.
+                 */
+                myConsts->ic_pciOffset = (ULONG)cd->cd_BoardAddr - FIRESTORM_CONTROL_OFFSET;
+                return cd;
+            }
+        }
+    }
+    return NULL;
+}
+
 /********************************************************************************************
 *
 *	the libinit routine. Called when the library is opened.
 *
 *********************************************************************************************/
 
-__entry struct PPCBase *LibInit(__reg("d0") struct PPCBase *ppcbase,
+/* Exec enters with no vbcc small-data base in a4. */
+__entry __saveds struct PPCBase *LibInit(__reg("d0") struct PPCBase *ppcbase,
               __reg("a0") BPTR seglist, __reg("a6") struct ExecBase* __sys)
 {
     struct ExecBase *SysBase;
@@ -472,7 +510,7 @@ __entry struct PPCBase *LibInit(__reg("d0") struct PPCBase *ppcbase,
 
     if (myConsts->ic_PciBase)
     {
-        if (!(cd = FindConfigDev(NULL, VENDOR_E3B, PROMETHEUS_FIRESTORM)))
+        if (!(cd = FindFirestorm(myConsts)))
         {
             CloseLibrary((struct Library*)myConsts->ic_PciBase);
             myConsts->ic_PciBase = NULL;
@@ -495,8 +533,7 @@ __entry struct PPCBase *LibInit(__reg("d0") struct PPCBase *ppcbase,
         if (myConsts->ic_openPCI)
             D(("Using openpci.library\n"));
 
-        offset = (ULONG)cd->cd_BoardAddr;
-        myConsts->ic_pciOffset = offset;
+        offset = myConsts->ic_pciOffset;
     }
 
     else if ((FindConfigDev(NULL, VENDOR_ELBOX, MEDIATOR_MKII)) || (FindConfigDev(NULL, VENDOR_ELBOX, MEDIATOR_MKIII)))
@@ -1893,7 +1930,24 @@ struct PCIBoard* FindPCIBoard(struct InternalConsts* myConsts, ULONG vendor, ULO
     if (myConsts->ic_openPCI)
     {
         struct Library* OpenPCIBase = (struct Library*)myConsts->ic_PciBase;
-        result = (struct PCIBoard*)FindBoardA(NULL, (struct TagItem*)&findTags);
+        ULONG hostOffset = 0;
+        struct TagItem offsetTags[] =
+        {
+            PRM_PCIToHostOffset, (ULONG)&hostOffset,
+            TAG_DONE
+        };
+
+        result = NULL;
+        while (result = (struct PCIBoard*)FindBoardA((struct pci_dev*)result, (struct TagItem*)&findTags))
+        {
+            /* OpenPCI can manage several host bridges. Keep both the PPC
+             * and graphics cards on the Firestorm selected during init.
+             * Missing translation information must not look like offset 0.
+             */
+            if (GetBoardAttrsA((struct pci_dev*)result, (struct TagItem*)&offsetTags) == 1 &&
+                hostOffset == myConsts->ic_pciOffset)
+                break;
+        }
     }
     else
     {

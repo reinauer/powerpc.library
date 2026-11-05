@@ -246,6 +246,9 @@
 
 #define VENDOR_E3B              0xe3b
 #define PROMETHEUS_FIRESTORM    0xc8
+#define VENDOR_OPENPCI_PROMETHEUS 1731
+#define OPENPCI_HOST_REGISTERS  0
+#define FIRESTORM_CONTROL_OFFSET 0x1fc08000UL
 
 #define MAX_PCI_SLOTS           6
 #define MAX_PPCI_SLOTS          4
